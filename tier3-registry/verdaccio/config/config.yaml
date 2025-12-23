@@ -1,0 +1,46 @@
+# Verdaccio Configuration
+# Project Bunyan - Foundation Stream
+
+# Storage
+storage: /verdaccio/storage
+
+# Web UI
+web:
+  title: Project Bunyan NPM Registry
+  enable: true
+
+# Authentication
+auth:
+  htpasswd:
+    file: /verdaccio/storage/htpasswd
+    max_users: 1000
+
+# Uplinks (proxy to public NPM registry)
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+    cache: true
+
+# Packages configuration
+packages:
+  # Scoped packages (@*/*)
+  '@*/*':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+    proxy: npmjs
+
+  # Unscoped packages
+  '**':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+    proxy: npmjs
+
+# Logging
+logs:
+  - { type: stdout, format: pretty, level: http }
+
+# Listen on all interfaces
+listen: 0.0.0.0:4873
+

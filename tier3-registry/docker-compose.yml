@@ -1,0 +1,94 @@
+version: '3.8'
+
+name: foundation-tier3-registry
+
+services:
+  # Docker Registry
+  foundation-tier3-registry:
+    env_file:
+      - ../.env
+      - .env
+    image: ${REGISTRY_IMAGE}
+    build:
+      context: ./docker-registry
+      dockerfile: Dockerfile
+    container_name: foundation-tier3-registry
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${REGISTRY_PORT}:${REGISTRY_PORT}"
+    environment:
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: ${REGISTRY_STORAGE_ROOTDIRECTORY}
+      REGISTRY_HTTP_ADDR: ${REGISTRY_HTTP_ADDR}
+      REGISTRY_STORAGE_DELETE_ENABLED: "${REGISTRY_STORAGE_DELETE_ENABLED}"
+    volumes:
+      - ${DOCKER_STORAGE_ROOT}/foundation/docker-registry/data/:${REGISTRY_STORAGE_ROOTDIRECTORY}:rw
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/v2/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "tier=3"
+      - "component=registry"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.http.routers.registry.rule=Host(`${REGISTRY_HOSTNAME}`)"
+      - "traefik.http.routers.registry.service=registry"
+      - "traefik.http.services.registry.loadbalancer.server.port=${REGISTRY_PORT}"
+      - "traefik.http.routers.registry.middlewares=keycloak-forward-auth"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=${REGISTRY_PORT}"
+
+  # Verdaccio - NPM Registry
+  foundation-verdaccio:
+    env_file:
+      - ../.env
+      - .env
+    image: ${VERDACCIO_IMAGE}
+    build:
+      context: ./verdaccio
+      dockerfile: Dockerfile
+    container_name: foundation-verdaccio
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${VERDACCIO_PORT}:${VERDACCIO_PORT}"
+    environment:
+      VERDACCIO_PROTOCOL: ${VERDACCIO_PROTOCOL}
+    volumes:
+      - ./verdaccio/config/config.yaml:/verdaccio/conf/config.yaml:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/verdaccio/storage/:/verdaccio/storage/:rw
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://127.0.0.1:4873/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "tier=3"
+      - "component=registry"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.http.routers.verdaccio.rule=Host(`${VERDACCIO_HOSTNAME}`)"
+      - "traefik.http.routers.verdaccio.service=verdaccio"
+      - "traefik.http.services.verdaccio.loadbalancer.server.port=${VERDACCIO_PORT}"
+      - "traefik.http.routers.verdaccio.middlewares=keycloak-forward-auth"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=${VERDACCIO_PORT}"
+
+networks:
+  foundation-layer-network:
+    name: ${NETWORK_NAME}
+    external: true
