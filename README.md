@@ -179,6 +179,7 @@ foundation-layer/
 ├── .foundation-config            # Foundation configuration
 ├── README.md                     # This file
 ├── CHANGELOG.md                  # Version history
+├── CONTRIBUTING.md               # Contribution guidelines
 ├── .gitignore                    # Git ignore rules
 ├── scripts/                      # Deployment and management scripts
 │   ├── 01-deploy-all-containers.sh
@@ -189,6 +190,16 @@ foundation-layer/
 │   ├── 06-health-check-all.sh
 │   ├── 07-verify-env-quick.sh
 │   └── 08-health-check-quick.sh
+├── tests/                        # Test suite
+│   ├── 00-readme.md
+│   ├── 01-changelog.md
+│   ├── 02-test-plan.md
+│   ├── 03-validation-results.md
+│   ├── unit/                     # Unit tests per tier
+│   ├── integration/              # Integration tests
+│   ├── e2e/                      # End-to-end tests
+│   ├── scripts/                  # Test execution scripts
+│   └── issues/                   # Test issue tracking
 ├── tier1-security/               # Security layer
 │   ├── .env
 │   ├── docker-compose.yml
@@ -277,6 +288,21 @@ FORCE_PURGE=true ./scripts/03-purge-all-containers.sh
 
 ```bash
 ./scripts/08-health-check-quick.sh
+```
+
+### Run Test Suite
+
+```bash
+# Run all tests
+./tests/scripts/run-all-tests.sh
+
+# Run batch validation
+./tests/scripts/run-batch-validation.sh
+
+# Run tier-specific tests
+./tests/unit/tier1-security/test-tier1-security.sh
+./tests/unit/tier2-proxy/test-tier2-proxy.sh
+./tests/unit/tier5-observability/test-tier5-observability.sh
 ```
 
 ### Manual Checks
