@@ -1,0 +1,14 @@
+# Traefik Dynamic Service Configuration
+# Project Bunyan - Foundation Stream
+# Note: Most services are discovered via Docker provider
+# This file is for static service definitions if needed
+
+http:
+  services:
+    # Example: Static service definition
+    # Most services use Docker provider with labels
+    pass-through:
+      loadBalancer:
+        servers:
+          - url: "http://localhost"
+

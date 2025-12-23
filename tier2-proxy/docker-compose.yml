@@ -1,0 +1,61 @@
+version: '3.8'
+
+name: foundation-tier2-proxy
+
+services:
+  # Traefik - Dynamic Reverse Proxy
+  foundation-traefik:
+    env_file:
+      - ../.env
+      - .env
+    image: ${TRAEFIK_IMAGE}
+    build:
+      context: ./traefik
+      dockerfile: Dockerfile
+    container_name: foundation-traefik
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${TRAEFIK_HTTP_PORT}:80"
+      - "${TRAEFIK_HTTPS_PORT}:443"
+      - "${TRAEFIK_DASHBOARD_PORT}:${TRAEFIK_INTERNAL_PORT}"
+    environment:
+      - TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/config/traefik.yml:${TRAEFIK_CONFIG_PATH}:ro
+      - ./traefik/config/dynamic/:${TRAEFIK_DYNAMIC_CONFIG_PATH}/:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/traefik/certs/:/certs/:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/traefik/logs/:/var/log/traefik/:rw
+    command:
+      - --configfile=${TRAEFIK_CONFIG_PATH}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/ping || wget --no-verbose --tries=1 --spider http://localhost:8080/api/rawdata"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "tier=2"
+      - "component=proxy"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`${TRAEFIK_HOSTNAME}`) && PathPrefix(`/dashboard`)"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=web"
+      - "traefik.http.routers.traefik-api.rule=Host(`${TRAEFIK_HOSTNAME}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.traefik-api.service=api@internal"
+      - "traefik.http.routers.traefik-api.entrypoints=web"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=${TRAEFIK_INTERNAL_PORT}"
+      - "prometheus.io/path=/metrics"
+
+networks:
+  foundation-layer-network:
+    name: ${NETWORK_NAME}
+    external: true

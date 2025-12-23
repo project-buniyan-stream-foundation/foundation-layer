@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Traefik - Dynamic Reverse Proxy
+  foundation-traefik:
+    image: ${TRAEFIK_IMAGE:-traefik:v2.10}
+    container_name: foundation-traefik
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${TRAEFIK_HTTP_PORT:-80}:80"
+      - "${TRAEFIK_HTTPS_PORT:-443}:443"
+      - "${TRAEFIK_DASHBOARD_PORT:-3104}:8080"
+    environment:
+      - TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL:-INFO}
+    volumes:
+      # Docker socket for service discovery
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Configuration files from codebase (read-only)
+      - ./config/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/dynamic/:/etc/traefik/dynamic/:ro
+      # TLS certificates (may be updated externally)
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/traefik/certs/:/certs/:ro
+      # Logs in /docker-storage
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/traefik/logs/:/var/log/traefik/:rw
+    command:
+      - --configfile=/etc/traefik/traefik.yml
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80/ping || wget --no-verbose --tries=1 --spider http://localhost:8080/api/rawdata"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "tier=2"
+      - "component=proxy"
+      - "portfolio=${PORTFOLIO_NAME:-portfolio-bunyan}"
+      - "layer=${LAYER_NAME:-foundation-layer}"
+      - "project=${PROJECT_NAME:-stream-foundation}"
+      - "network=${NETWORK_NAME:-foundation-layer-network}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=foundation-layer-network"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.local`) && PathPrefix(`/dashboard`)"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=web"
+      - "traefik.http.routers.traefik-api.rule=Host(`traefik.local`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.traefik-api.service=api@internal"
+      - "traefik.http.routers.traefik-api.entrypoints=web"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8080"
+      - "prometheus.io/path=/metrics"
+
+networks:
+  foundation-layer-network:
+    name: foundation-layer-network
+    external: true
