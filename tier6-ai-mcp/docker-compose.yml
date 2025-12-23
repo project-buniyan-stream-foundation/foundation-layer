@@ -1,0 +1,59 @@
+version: '3.8'
+
+name: foundation-tier6-ai-mcp
+
+services:
+  # MCP Gateway - AI Tool Integration
+  foundation-mcp-gateway:
+    env_file:
+      - ../.env
+      - .env
+    image: ${MCP_GATEWAY_IMAGE}
+    build:
+      context: ./mcp-gateway
+      dockerfile: Dockerfile
+    container_name: foundation-mcp-gateway
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${MCP_GATEWAY_PORT}:${MCP_GATEWAY_PORT}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./mcp-gateway/config/mcp-gateway-config.yaml:${MCP_GATEWAY_CONFIG_PATH}:ro
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/mcp-gateway/data/:/data/:rw
+    environment:
+      DOCKER_MCP_USE_CE: ${DOCKER_MCP_USE_CE}
+      DOCKER_MCP_IN_CONTAINER: 1
+    entrypoint: ["/docker-mcp", "gateway", "run"]
+    command:
+      - --transport=${MCP_GATEWAY_TRANSPORT}
+      - --port=${MCP_GATEWAY_PORT}
+      - --watch=${MCP_GATEWAY_WATCH}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8811/health || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "tier=6"
+      - "component=ai-mcp"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.http.routers.mcp.rule=Host(`${MCP_GATEWAY_HOSTNAME}`)"
+      - "traefik.http.routers.mcp.service=mcp-gateway"
+      - "traefik.http.services.mcp-gateway.loadbalancer.server.port=${MCP_GATEWAY_PORT}"
+      - "traefik.http.routers.mcp.middlewares=keycloak-forward-auth"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=${MCP_GATEWAY_PORT}"
+      - "prometheus.io/path=/metrics"
+
+networks:
+  foundation-layer-network:
+    name: ${NETWORK_NAME}
+    external: true
