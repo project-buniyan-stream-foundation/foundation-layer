@@ -4,6 +4,8 @@
 **Status**: Active Development  
 **Last Updated**: 2025-12-23
 
+> **Note**: This file has been renamed to README.md following standard conventions.
+
 ---
 
 ## Overview

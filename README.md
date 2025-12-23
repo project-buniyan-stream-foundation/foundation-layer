@@ -191,10 +191,10 @@ foundation-layer/
 │   ├── 07-verify-env-quick.sh
 │   └── 08-health-check-quick.sh
 ├── tests/                        # Test suite
-│   ├── 00-readme.md
-│   ├── 01-changelog.md
-│   ├── 02-test-plan.md
-│   ├── 03-validation-results.md
+│   ├── README.md                 # Test suite overview
+│   ├── CHANGELOG.md              # Test changelog
+│   ├── 02-test-plan.md           # Test plan
+│   ├── ACTUAL-TEST-RESULTS.md    # Actual test results
 │   ├── unit/                     # Unit tests per tier
 │   ├── integration/              # Integration tests
 │   ├── e2e/                      # End-to-end tests
@@ -204,33 +204,70 @@ foundation-layer/
 │   ├── .env
 │   ├── docker-compose.yml
 │   ├── postgres/
+│   │   ├── README.md
+│   │   ├── config/
+│   │   └── Dockerfile
 │   ├── vault/
+│   │   ├── README.md
+│   │   ├── config/
+│   │   └── Dockerfile
 │   └── keycloak/
+│       ├── README.md
+│       ├── config/
+│       └── Dockerfile
 ├── tier2-proxy/                  # Proxy layer
 │   ├── .env
 │   ├── docker-compose.yml
 │   └── traefik/
+│       ├── README.md
+│       ├── config/
+│       └── Dockerfile
 ├── tier3-registry/               # Registry layer
 │   ├── .env
 │   ├── docker-compose.yml
 │   ├── docker-registry/
+│   │   ├── README.md
+│   │   ├── config/
+│   │   └── Dockerfile
 │   └── verdaccio/
+│       ├── README.md
+│       ├── config/
+│       └── Dockerfile
 ├── tier4-management/             # Management layer
 │   ├── .env
 │   ├── docker-compose.yml
 │   └── portainer/
+│       ├── README.md
+│       └── Dockerfile
 ├── tier5-observability/          # Observability layer
 │   ├── .env
 │   ├── docker-compose.yml
 │   ├── prometheus/
+│   │   ├── README.md
+│   │   ├── config/
+│   │   └── Dockerfile
 │   ├── grafana/
+│   │   ├── README.md
+│   │   ├── config/
+│   │   └── Dockerfile
 │   ├── loki/
+│   │   ├── README.md
+│   │   ├── config/
+│   │   └── Dockerfile
 │   ├── promtail/
+│   │   ├── README.md
+│   │   ├── config/
+│   │   └── Dockerfile
 │   └── cadvisor/
+│       ├── README.md
+│       └── Dockerfile
 └── tier6-ai-mcp/                 # AI-MCP layer
     ├── .env
     ├── docker-compose.yml
     └── mcp-gateway/
+        ├── README.md
+        ├── config/
+        └── Dockerfile
 ```
 
 ## Deployment
