@@ -1,0 +1,55 @@
+# Traefik Dynamic Middleware Configuration
+# Project Bunyan - Foundation Stream
+
+http:
+  middlewares:
+    # Keycloak ForwardAuth Middleware
+    keycloak-forward-auth:
+      forwardAuth:
+        address: http://foundation-keycloak:8080/auth/realms/foundation/protocol/openid-connect/auth
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Auth-User
+          - X-Auth-Groups
+          - X-Auth-Email
+        authRequestHeaders:
+          - X-Forwarded-Host
+          - X-Forwarded-Proto
+          - X-Forwarded-Uri
+    
+    # Rate Limiting Middleware
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+    
+    # Security Headers Middleware
+    security-headers:
+      headers:
+        sslRedirect: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        customFrameOptionsValue: "SAMEORIGIN"
+        customRequestHeaders:
+          X-Forwarded-Proto: https
+    
+    # Combined: Security Headers + Rate Limit
+    secure-rate-limit:
+      chain:
+        middlewares:
+          - security-headers
+          - rate-limit
+    
+    # Combined: ForwardAuth + Security Headers + Rate Limit
+    keycloak-secure:
+      chain:
+        middlewares:
+          - keycloak-forward-auth
+          - security-headers
+          - rate-limit
+

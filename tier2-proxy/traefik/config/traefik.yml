@@ -1,0 +1,61 @@
+# Traefik Static Configuration
+# Project Bunyan - Foundation Stream
+
+# API and Dashboard
+api:
+  dashboard: true
+  insecure: true  # Development only - use HTTPS in production
+  debug: false
+
+# Entry Points
+entryPoints:
+  web:
+    address: ":80"
+    # Note: HTTP to HTTPS redirect is disabled for development
+    # Ping endpoint and other internal endpoints need HTTP access
+    # In production, enable redirect and configure proper HTTPS
+    # http:
+    #   redirections:
+    #     entryPoint:
+    #       to: websecure
+    #       scheme: https
+    #       permanent: true
+  websecure:
+    address: ":443"
+
+# Providers
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: foundation-tier2-proxy
+    watch: true
+    swarmMode: false
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+# Logging
+log:
+  level: INFO
+  format: json
+  filePath: /var/log/traefik/traefik.log
+
+# Access Log
+accessLog:
+  filePath: /var/log/traefik/access.log
+  format: json
+  bufferingSize: 100
+
+# Metrics (Prometheus)
+metrics:
+  prometheus:
+    entryPoint: web
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    addRoutersLabels: true
+
+# Ping endpoint for health checks
+ping:
+  entryPoint: web
+

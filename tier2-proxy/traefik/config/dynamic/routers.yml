@@ -1,0 +1,25 @@
+# Traefik Dynamic Router Configuration
+# Project Bunyan - Foundation Stream
+# Note: Most routing is handled via Docker labels
+# This file is for static routes that don't use Docker provider
+
+http:
+  routers:
+    # Traefik Dashboard (if not using Docker labels)
+    traefik-dashboard:
+      rule: Host(`traefik.local`) && PathPrefix(`/dashboard`)
+      service: api@internal
+      entryPoints:
+        - web
+      middlewares:
+        - keycloak-forward-auth
+    
+    # Traefik API (if not using Docker labels)
+    traefik-api:
+      rule: Host(`traefik.local`) && PathPrefix(`/api`)
+      service: api@internal
+      entryPoints:
+        - web
+      middlewares:
+        - keycloak-forward-auth
+
