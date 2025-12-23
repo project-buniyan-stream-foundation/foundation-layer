@@ -1,0 +1,216 @@
+version: '3.8'
+
+name: foundation-tier5-observability
+
+services:
+  # Prometheus - Metrics Collection
+  foundation-prometheus:
+    env_file:
+      - ../.env
+      - .env
+    image: ${PROMETHEUS_IMAGE}
+    build:
+      context: ./prometheus
+      dockerfile: Dockerfile
+    container_name: foundation-prometheus
+    restart: unless-stopped
+    user: "${PROMETHEUS_USER}"
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${PROMETHEUS_PORT}:${PROMETHEUS_INTERNAL_PORT}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./prometheus/config/prometheus.yml:${PROMETHEUS_CONFIG_PATH}:ro
+      - ./prometheus/config/rules/:/etc/prometheus/rules/:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/prometheus/data/:${PROMETHEUS_DATA_PATH}/:rw
+    command:
+      - '--config.file=${PROMETHEUS_CONFIG_PATH}'
+      - '--storage.tsdb.path=${PROMETHEUS_DATA_PATH}'
+      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME}'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${PROMETHEUS_INTERNAL_PORT}/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "tier=5"
+      - "component=observability"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.local`)"
+      - "traefik.http.routers.prometheus.service=prometheus"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+      - "traefik.http.routers.prometheus.middlewares=keycloak-forward-auth"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9090"
+
+  # Grafana - Dashboards and Visualization
+  foundation-grafana:
+    env_file:
+      - ../.env
+      - .env
+    image: ${GRAFANA_IMAGE}
+    build:
+      context: ./grafana
+      dockerfile: Dockerfile
+    container_name: foundation-grafana
+    restart: unless-stopped
+    user: "${GRAFANA_USER}"
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${GRAFANA_PORT}:${GRAFANA_INTERNAL_PORT}"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_AUTH_GENERIC_OAUTH_ENABLED: ${GRAFANA_OAUTH_ENABLED}
+      GF_AUTH_GENERIC_OAUTH_NAME: ${GRAFANA_OAUTH_NAME}
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: ${GRAFANA_OAUTH_CLIENT_ID}
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: ${GRAFANA_OAUTH_CLIENT_SECRET}
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: http://foundation-keycloak:${KEYCLOAK_INTERNAL_PORT}/auth/realms/${GRAFANA_KEYCLOAK_REALM}/protocol/openid-connect/auth
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: http://foundation-keycloak:${KEYCLOAK_INTERNAL_PORT}/auth/realms/${GRAFANA_KEYCLOAK_REALM}/protocol/openid-connect/token
+      GF_AUTH_GENERIC_OAUTH_API_URL: http://foundation-keycloak:${KEYCLOAK_INTERNAL_PORT}/auth/realms/${GRAFANA_KEYCLOAK_REALM}/protocol/openid-connect/userinfo
+      GF_SERVER_ROOT_URL: ${GRAFANA_SERVER_ROOT_URL}
+      GF_SERVER_SERVE_FROM_SUB_PATH: ${GRAFANA_SERVER_SERVE_FROM_SUB_PATH}
+    volumes:
+      - ./grafana/config/datasources/:/etc/grafana/provisioning/datasources/:ro
+      - ./grafana/config/dashboards/:/etc/grafana/provisioning/dashboards/:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/grafana/data/:/var/lib/grafana/:rw
+    depends_on:
+      - foundation-prometheus
+      - foundation-loki
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${GRAFANA_INTERNAL_PORT}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "tier=5"
+      - "component=observability"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.http.routers.grafana.rule=Host(`${GRAFANA_HOSTNAME}`)"
+      - "traefik.http.routers.grafana.service=grafana"
+      - "traefik.http.services.grafana.loadbalancer.server.port=${GRAFANA_INTERNAL_PORT}"
+      - "traefik.http.routers.grafana.middlewares=keycloak-forward-auth"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=${GRAFANA_INTERNAL_PORT}"
+
+  # Loki - Log Aggregation
+  foundation-loki:
+    env_file:
+      - ../.env
+      - .env
+    image: ${LOKI_IMAGE}
+    build:
+      context: ./loki
+      dockerfile: Dockerfile
+    container_name: foundation-loki
+    restart: unless-stopped
+    user: "${LOKI_USER}"
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${LOKI_PORT}:${LOKI_INTERNAL_PORT}"
+    volumes:
+      - ./loki/config/loki-config.yaml:${LOKI_CONFIG_PATH}:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/loki/data/:${DOCKER_STORAGE_ROOT}/foundation/loki/data/:rw
+    command: -config.file=${LOKI_CONFIG_PATH}
+    labels:
+      - "tier=5"
+      - "component=observability"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=3100"
+
+  # Promtail - Log Collector
+  foundation-promtail:
+    env_file:
+      - ../.env
+      - .env
+    image: ${PROMTAIL_IMAGE}
+    build:
+      context: ./promtail
+      dockerfile: Dockerfile
+    container_name: foundation-promtail
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./promtail/config/promtail-config.yaml:${PROMTAIL_CONFIG_PATH}:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+    command: -config.file=${PROMTAIL_CONFIG_PATH}
+    depends_on:
+      - foundation-loki
+    labels:
+      - "tier=5"
+      - "component=observability"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+
+  # cAdvisor - Container Metrics
+  foundation-cadvisor:
+    env_file:
+      - ../.env
+      - .env
+    image: ${CADVISOR_IMAGE}
+    build:
+      context: ./cadvisor
+      dockerfile: Dockerfile
+    container_name: foundation-cadvisor
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${CADVISOR_PORT}:${CADVISOR_INTERNAL_PORT}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "tier=5"
+      - "component=observability"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=${CADVISOR_INTERNAL_PORT}"
+      - "prometheus.io/path=/metrics"
+
+networks:
+  foundation-layer-network:
+    name: ${NETWORK_NAME}
+    external: true

@@ -1,0 +1,34 @@
+# Promtail Configuration
+# Project Bunyan - Foundation Stream
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://foundation-loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Docker container logs
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Only collect logs from containers with labels
+      - source_labels: [__meta_docker_container_name]
+        regex: '/(.*)'
+        target_label: container
+      - source_labels: [__meta_docker_container_label_component]
+        target_label: component
+      - source_labels: [__meta_docker_container_label_tier]
+        target_label: tier
+      # Set log path
+      - source_labels: [__meta_docker_container_id]
+        target_label: __path__
+        replacement: /var/lib/docker/containers/$1/$1-json.log
+        regex: '(.+)'
+

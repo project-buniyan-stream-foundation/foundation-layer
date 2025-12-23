@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Grafana - Dashboards and Visualization
+  foundation-grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana:latest}
+    container_name: foundation-grafana
+    restart: unless-stopped
+    user: "472:472"
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${GRAFANA_PORT:-3100}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-in-production}
+      GF_AUTH_GENERIC_OAUTH_ENABLED: ${GRAFANA_OAUTH_ENABLED:-true}
+      GF_AUTH_GENERIC_OAUTH_NAME: Keycloak
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: ${GRAFANA_OAUTH_CLIENT_ID:-grafana}
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: ${GRAFANA_OAUTH_CLIENT_SECRET:-change-me}
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: http://foundation-keycloak:8080/auth/realms/foundation/protocol/openid-connect/auth
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: http://foundation-keycloak:8080/auth/realms/foundation/protocol/openid-connect/token
+      GF_AUTH_GENERIC_OAUTH_API_URL: http://foundation-keycloak:8080/auth/realms/foundation/protocol/openid-connect/userinfo
+      GF_SERVER_ROOT_URL: http://grafana.local
+      GF_SERVER_SERVE_FROM_SUB_PATH: false
+    volumes:
+      # Provisioned datasources/dashboards from codebase (read-only)
+      - ./config/datasources/:/etc/grafana/provisioning/datasources/:ro
+      - ./config/dashboards/:/etc/grafana/provisioning/dashboards/:ro
+      # Data in /docker-storage (read-write)
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/grafana/data/:/var/lib/grafana/:rw
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "tier=5"
+      - "component=observability"
+      - "portfolio=${PORTFOLIO_NAME:-portfolio-bunyan}"
+      - "layer=${LAYER_NAME:-foundation-layer}"
+      - "project=${PROJECT_NAME:-stream-foundation}"
+      - "network=${NETWORK_NAME:-foundation-layer-network}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=foundation-layer-network"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.local`)"
+      - "traefik.http.routers.grafana.service=grafana"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.http.routers.grafana.middlewares=keycloak-forward-auth"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=3000"
+
+networks:
+  foundation-layer-network:
+    name: foundation-layer-network
+    external: true

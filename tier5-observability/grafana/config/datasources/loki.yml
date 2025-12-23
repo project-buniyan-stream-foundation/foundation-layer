@@ -1,0 +1,12 @@
+# Grafana Loki Datasource
+# Project Bunyan - Foundation Stream
+
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://foundation-loki:3100
+    editable: true
+

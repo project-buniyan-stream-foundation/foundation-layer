@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # Loki - Log Aggregation
+  foundation-loki:
+    image: ${LOKI_IMAGE:-grafana/loki:latest}
+    container_name: foundation-loki
+    restart: unless-stopped
+    user: "10001:10001"
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${LOKI_PORT:-3200}:3100"
+    volumes:
+      # Configuration from codebase (read-only)
+      - ./config/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      # Data in /docker-storage (read-write)
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/loki/data/:/loki/data/:rw
+    command: -config.file=/etc/loki/loki-config.yaml
+    labels:
+      - "tier=5"
+      - "component=observability"
+      - "portfolio=${PORTFOLIO_NAME:-portfolio-bunyan}"
+      - "layer=${LAYER_NAME:-foundation-layer}"
+      - "project=${PROJECT_NAME:-stream-foundation}"
+      - "network=${NETWORK_NAME:-foundation-layer-network}"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=3100"
+
+networks:
+  foundation-layer-network:
+    name: foundation-layer-network
+    external: true
