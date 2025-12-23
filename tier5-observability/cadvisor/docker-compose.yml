@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # cAdvisor - Container Metrics
+  foundation-cadvisor:
+    image: ${CADVISOR_IMAGE:-gcr.io/cadvisor/cadvisor:latest}
+    container_name: foundation-cadvisor
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${CADVISOR_PORT:-3102}:8080"
+    volumes:
+      # Docker socket for container metrics
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Host filesystem for metrics
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "tier=5"
+      - "component=observability"
+      - "portfolio=${PORTFOLIO_NAME:-portfolio-bunyan}"
+      - "layer=${LAYER_NAME:-foundation-layer}"
+      - "project=${PROJECT_NAME:-stream-foundation}"
+      - "network=${NETWORK_NAME:-foundation-layer-network}"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8080"
+      - "prometheus.io/path=/metrics"
+
+networks:
+  foundation-layer-network:
+    name: foundation-layer-network
+    external: true

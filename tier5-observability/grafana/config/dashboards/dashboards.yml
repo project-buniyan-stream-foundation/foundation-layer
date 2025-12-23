@@ -1,0 +1,17 @@
+# Grafana Dashboard Provisioning
+# Project Bunyan - Foundation Stream
+
+apiVersion: 1
+
+providers:
+  - name: 'Foundation Dashboards'
+    orgId: 1
+    folder: 'Foundation'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true
+

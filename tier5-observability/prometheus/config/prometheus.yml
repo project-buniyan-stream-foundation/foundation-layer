@@ -1,0 +1,67 @@
+# Prometheus Configuration
+# Project Bunyan - Foundation Stream
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'foundation'
+    environment: 'production'
+
+# Alertmanager configuration (future)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: []
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # cAdvisor - Container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['foundation-cadvisor:8080']
+
+  # Docker service discovery
+  - job_name: 'docker'
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Only scrape containers with prometheus.io/scrape=true label
+      - source_labels: [__meta_docker_container_label_prometheus_io_scrape]
+        action: keep
+        regex: true
+      # Use prometheus.io/port label for port
+      - source_labels: [__meta_docker_container_label_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: (.+)
+        replacement: $1:${__meta_docker_container_label_prometheus_io_port}
+      # Use prometheus.io/path label for metrics path
+      - source_labels: [__meta_docker_container_label_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      # Add container name as instance label
+      - source_labels: [__meta_docker_container_name]
+        action: replace
+        target_label: instance
+        regex: /(.*)
+      # Add tier label
+      - source_labels: [__meta_docker_container_label_tier]
+        action: replace
+        target_label: tier
+      # Add component label
+      - source_labels: [__meta_docker_container_label_component]
+        action: replace
+        target_label: component
+

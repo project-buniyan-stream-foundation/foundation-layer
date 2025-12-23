@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # Promtail - Log Collector
+  foundation-promtail:
+    image: ${PROMTAIL_IMAGE:-grafana/promtail:latest}
+    container_name: foundation-promtail
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    volumes:
+      # Docker socket for log collection
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Configuration from codebase (read-only)
+      - ./config/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      # Container logs
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    labels:
+      - "tier=5"
+      - "component=observability"
+      - "portfolio=${PORTFOLIO_NAME:-portfolio-bunyan}"
+      - "layer=${LAYER_NAME:-foundation-layer}"
+      - "project=${PROJECT_NAME:-stream-foundation}"
+      - "network=${NETWORK_NAME:-foundation-layer-network}"
+
+networks:
+  foundation-layer-network:
+    name: foundation-layer-network
+    external: true
