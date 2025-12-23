@@ -1,0 +1,151 @@
+version: '3.8'
+
+name: foundation-tier1-security
+
+services:
+  # PostgreSQL - Keycloak Database
+  foundation-postgres:
+    env_file:
+      - ../.env
+      - .env
+    image: ${POSTGRES_IMAGE}
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    container_name: foundation-postgres
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_INTERNAL_PORT}"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./postgres/config/init/:/docker-entrypoint-initdb.d/:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/postgres/data/:/var/lib/postgresql/data/:rw
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "tier=1"
+      - "component=database"
+      - "backup=true"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=5432"
+
+  # HashiCorp Vault - Secrets Management
+  foundation-vault:
+    env_file:
+      - ../.env
+      - .env
+    image: ${VAULT_IMAGE}
+    build:
+      context: ./vault
+      dockerfile: Dockerfile
+    container_name: foundation-vault
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${VAULT_PORT}:${VAULT_PORT}"
+    environment:
+      VAULT_ADDR: ${VAULT_ADDR}
+      VAULT_API_ADDR: ${VAULT_API_ADDR}
+      VAULT_LOG_LEVEL: ${VAULT_LOG_LEVEL}
+    volumes:
+      - ./vault/config/vault.hcl:/vault/config/vault.hcl:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/vault/data/:/vault/data/:rw
+      - ${DOCKER_STORAGE_ROOT}/foundation/vault/logs/:/vault/logs/:rw
+    cap_add:
+      - IPC_LOCK
+    command: vault server -config=/vault/config/vault.hcl
+    healthcheck:
+      test: ["CMD-SHELL", "vault status || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "tier=1"
+      - "component=security"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "traefik.enable=true"
+      - "traefik.http.routers.vault.rule=Host(`${VAULT_HOSTNAME}`)"
+      - "traefik.http.routers.vault.service=vault"
+      - "traefik.http.services.vault.loadbalancer.server.port=8200"
+      - "traefik.docker.network=foundation-layer-network"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8200"
+      - "prometheus.io/path=/v1/sys/metrics?format=prometheus"
+
+  # Keycloak - SSO/OAuth2 Provider
+  foundation-keycloak:
+    env_file:
+      - ../.env
+      - .env
+    image: ${KEYCLOAK_IMAGE}
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
+    container_name: foundation-keycloak
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${KEYCLOAK_HTTP_PORT}:${KEYCLOAK_INTERNAL_PORT}"
+      - "${KEYCLOAK_HTTPS_PORT}:${KEYCLOAK_INTERNAL_HTTPS_PORT}"
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: ${KEYCLOAK_DB_TYPE}
+      KC_DB_URL: jdbc:postgresql://foundation-postgres:${POSTGRES_INTERNAL_PORT}/${POSTGRES_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
+      KC_HOSTNAME_PORT: ${KEYCLOAK_HTTP_PORT}
+      KC_HOSTNAME_STRICT: ${KEYCLOAK_HOSTNAME_STRICT}
+      KC_HOSTNAME_STRICT_HTTPS: ${KEYCLOAK_HOSTNAME_STRICT_HTTPS}
+      KC_HTTP_ENABLED: ${KEYCLOAK_HTTP_ENABLED}
+      KC_HEALTH_ENABLED: ${KEYCLOAK_HEALTH_ENABLED}
+      KC_METRICS_ENABLED: ${KEYCLOAK_METRICS_ENABLED}
+      KC_PROXY_HEADERS: ${KEYCLOAK_PROXY_HEADERS}
+    volumes:
+      - ./keycloak/config/realms/:/opt/keycloak/data/import/:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/keycloak/data/:/opt/keycloak/data/:rw
+      - ${DOCKER_STORAGE_ROOT}/foundation/keycloak/themes/:/opt/keycloak/themes/:rw
+    command: start-dev --import-realm
+    depends_on:
+      foundation-postgres:
+        condition: service_healthy
+    labels:
+      - "tier=1"
+      - "component=security"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`${KEYCLOAK_HOSTNAME_DOMAIN}`) || PathPrefix(`/auth`)"
+      - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=${KEYCLOAK_INTERNAL_PORT}"
+      - "traefik.docker.network=foundation-layer-network"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=${KEYCLOAK_INTERNAL_PORT}"
+      - "prometheus.io/path=/metrics"
+
+networks:
+  foundation-layer-network:
+    name: ${NETWORK_NAME}
+    external: true

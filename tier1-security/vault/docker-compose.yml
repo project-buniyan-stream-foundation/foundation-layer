@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # HashiCorp Vault - Secrets Management
+  foundation-vault:
+    image: ${VAULT_IMAGE:-hashicorp/vault:1.21.1}
+    container_name: foundation-vault
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_ADDR: ${VAULT_ADDR:-http://0.0.0.0:8200}
+      VAULT_API_ADDR: ${VAULT_API_ADDR:-http://foundation-vault:8200}
+      VAULT_LOG_LEVEL: ${VAULT_LOG_LEVEL:-info}
+    volumes:
+      # Configuration from codebase (read-only)
+      - ./config/vault.hcl:/vault/config/vault.hcl:ro
+      # Data in /docker-storage (read-write)
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/vault/data/:/vault/data/:rw
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/vault/logs/:/vault/logs/:rw
+    cap_add:
+      - IPC_LOCK
+    command: vault server -config=/vault/config/vault.hcl
+    healthcheck:
+      test: ["CMD-SHELL", "vault status || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "tier=1"
+      - "component=security"
+      - "portfolio=${PORTFOLIO_NAME:-portfolio-bunyan}"
+      - "layer=${LAYER_NAME:-foundation-layer}"
+      - "project=${PROJECT_NAME:-stream-foundation}"
+      - "network=${NETWORK_NAME:-foundation-layer-network}"
+      - "traefik.enable=true"
+      - "traefik.http.routers.vault.rule=Host(`vault.local`)"
+      - "traefik.http.routers.vault.service=vault"
+      - "traefik.http.services.vault.loadbalancer.server.port=8200"
+      - "traefik.docker.network=foundation-layer-network"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8200"
+      - "prometheus.io/path=/v1/sys/metrics?format=prometheus"
+
+networks:
+  foundation-layer-network:
+    name: foundation-layer-network
+    external: true
