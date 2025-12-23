@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Verdaccio - NPM Registry
+  foundation-verdaccio:
+    image: ${VERDACCIO_IMAGE:-verdaccio/verdaccio:latest}
+    container_name: foundation-verdaccio
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${VERDACCIO_PORT:-4873}:4873"
+    environment:
+      VERDACCIO_PROTOCOL: http
+    volumes:
+      # Configuration from codebase (read-only)
+      - ./config/config.yaml:/verdaccio/conf/config.yaml:ro
+      # Data in /docker-storage (read-write)
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/verdaccio/storage/:/verdaccio/storage/:rw
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://127.0.0.1:4873/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "tier=3"
+      - "component=registry"
+      - "portfolio=${PORTFOLIO_NAME:-portfolio-bunyan}"
+      - "layer=${LAYER_NAME:-foundation-layer}"
+      - "project=${PROJECT_NAME:-stream-foundation}"
+      - "network=${NETWORK_NAME:-foundation-layer-network}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=foundation-layer-network"
+      - "traefik.http.routers.verdaccio.rule=Host(`verdaccio.local`)"
+      - "traefik.http.routers.verdaccio.service=verdaccio"
+      - "traefik.http.services.verdaccio.loadbalancer.server.port=4873"
+      - "traefik.http.routers.verdaccio.middlewares=keycloak-forward-auth"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=4873"
+
+networks:
+  foundation-layer-network:
+    name: foundation-layer-network
+    external: true
