@@ -1,0 +1,46 @@
+version: '3.8'
+
+name: foundation-tier4-management
+
+services:
+  # Portainer - Container Management UI
+  foundation-portainer:
+    env_file:
+      - ../.env
+      - .env
+    image: ${PORTAINER_IMAGE}
+    build:
+      context: ./portainer
+      dockerfile: Dockerfile
+    container_name: foundation-portainer
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${PORTAINER_HTTP_PORT}:${PORTAINER_INTERNAL_PORT}"
+      - "${PORTAINER_HTTPS_PORT}:9443"
+      - "${PORTAINER_EDGE_PORT}:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${DOCKER_STORAGE_ROOT}/foundation/portainer/data/:/data/:rw
+    command: -H ${PORTAINER_DOCKER_SOCKET}
+    labels:
+      - "tier=4"
+      - "component=management"
+      - "portfolio=${PORTFOLIO_NAME}"
+      - "layer=${LAYER_NAME}"
+      - "project=${PROJECT_NAME}"
+      - "network=${NETWORK_NAME}"
+      - "traefik.enable=true"
+      - "traefik.docker.network=${NETWORK_NAME}"
+      - "traefik.http.routers.portainer.rule=Host(`${PORTAINER_HOSTNAME}`)"
+      - "traefik.http.routers.portainer.service=portainer"
+      - "traefik.http.services.portainer.loadbalancer.server.port=${PORTAINER_INTERNAL_PORT}"
+      - "traefik.http.routers.portainer.middlewares=keycloak-forward-auth"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=${PORTAINER_INTERNAL_PORT}"
+
+networks:
+  foundation-layer-network:
+    name: ${NETWORK_NAME}
+    external: true
