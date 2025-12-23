@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Keycloak - SSO/OAuth2 Provider
+  foundation-keycloak:
+    image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.4.7}
+    container_name: foundation-keycloak
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "${KEYCLOAK_HTTP_PORT:-8180}:8080"
+      - "${KEYCLOAK_HTTPS_PORT:-8443}:8443"
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change-me-in-production}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://foundation-postgres:5432/${POSTGRES_DB:-keycloak}
+      KC_DB_USERNAME: ${POSTGRES_USER:-keycloak}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-production}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
+      KC_HOSTNAME_PORT: ${KEYCLOAK_HTTP_PORT:-8180}
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KC_METRICS_ENABLED: true
+      KC_PROXY_HEADERS: xforwarded
+    volumes:
+      # Realm configuration from codebase (imported on startup)
+      - ./config/realms/:/opt/keycloak/data/import/:ro
+      # Data in /docker-storage (read-write)
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/keycloak/data/:/opt/keycloak/data/:rw
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/keycloak/themes/:/opt/keycloak/themes/:rw
+    command: start-dev --import-realm
+    labels:
+      - "tier=1"
+      - "component=security"
+      - "portfolio=${PORTFOLIO_NAME:-portfolio-bunyan}"
+      - "layer=${LAYER_NAME:-foundation-layer}"
+      - "project=${PROJECT_NAME:-stream-foundation}"
+      - "network=${NETWORK_NAME:-foundation-layer-network}"
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`keycloak.local`) || PathPrefix(`/auth`)"
+      - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+      - "traefik.docker.network=foundation-layer-network"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8080"
+      - "prometheus.io/path=/metrics"
+
+networks:
+  foundation-layer-network:
+    name: foundation-layer-network
+    external: true

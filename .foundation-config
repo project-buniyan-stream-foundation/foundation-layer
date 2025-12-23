@@ -1,0 +1,15 @@
+# Foundation Layer Common Configuration
+# This file contains common tags/labels used across all foundation containers
+# Update values here to propagate changes to all containers
+
+# Portfolio identifier
+PORTFOLIO_NAME=portfolio-bunyan
+
+# Layer identifier
+LAYER_NAME=foundation-layer
+
+# Project identifier
+PROJECT_NAME=stream-foundation
+
+# Network name
+NETWORK_NAME=foundation-layer-network

@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Keycloak Database
+  foundation-postgres:
+    image: ${POSTGRES_IMAGE:-postgres:15-alpine}
+    container_name: foundation-postgres
+    restart: unless-stopped
+    networks:
+      - foundation-layer-network
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-keycloak}
+      POSTGRES_USER: ${POSTGRES_USER:-keycloak}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-production}
+    volumes:
+      # Initialization scripts from codebase (read-only)
+      - ./config/init/:/docker-entrypoint-initdb.d/:ro
+      # Data in /docker-storage (read-write)
+      - ${DOCKER_STORAGE_ROOT:-/docker-storage}/foundation/postgres/data/:/var/lib/postgresql/data/:rw
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "tier=1"
+      - "component=database"
+      - "backup=true"
+      - "portfolio=${PORTFOLIO_NAME:-portfolio-bunyan}"
+      - "layer=${LAYER_NAME:-foundation-layer}"
+      - "project=${PROJECT_NAME:-stream-foundation}"
+      - "network=${NETWORK_NAME:-foundation-layer-network}"
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=5432"
+
+networks:
+  foundation-layer-network:
+    name: foundation-layer-network
+    external: true
