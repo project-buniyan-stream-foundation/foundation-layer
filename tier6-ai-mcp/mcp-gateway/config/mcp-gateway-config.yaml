@@ -1,0 +1,9 @@
+# MCP Gateway Configuration
+# Project Bunyan - Foundation Stream
+# This file configures the Docker MCP Gateway
+
+# Gateway settings are configured via command-line flags in docker-compose.yml
+# This file can be used for server-specific configurations if needed
+
+# Note: The docker/mcp-gateway uses the Docker MCP Catalog by default
+# Servers are enabled via --servers flag or catalog configuration
