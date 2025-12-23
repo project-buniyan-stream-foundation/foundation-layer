@@ -1,0 +1,65 @@
+# Environment files
+.env
+*.env
+!.env.example
+
+# Docker volumes
+docker-storage/
+/docker-storage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files
+*.bak
+backup/
+
+# Secrets
+secrets/
+*.key
+*.pem
+*.crt
+vault-init.txt
+vault-keys.txt
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Node modules (if using npm scripts)
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+
+# Terraform (if using)
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Kubernetes secrets
+*.secret.yaml
+*-secret.yaml
